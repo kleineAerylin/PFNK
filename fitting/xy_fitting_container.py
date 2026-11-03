@@ -8,21 +8,24 @@ from IPython.display import display, Markdown
 from uncertainties import UFloat, ufloat as uf
 from kafe2 import XYContainer, XYFit, Plot
 
-from tools.fitting.kafe2_interaction_types import ParamaterLimitBoundary
+from fitting.kafe2_interaction_types import ParameterLimitBoundary
+from plotting.plot_helper import PlotHelper
 
 Real = int|float
 
 
 class XYFittingContainer:
     """
-    Conatiner for XY Data with errors that allows to comfortably
+    Container for XY Data with errors that allows to comfortably
     perform kafe2 XYFits
     """
     
     _uf = np.vectorize(lambda v, e: uf(v, e), otypes=[object])
+    data_points_colorcyle: list[str] | None = PlotHelper.kit_color_rotation
+    model_colorcycle: list[str] | None = PlotHelper.color_rotation_1
     
     def __init__(self, container: XYContainer) -> None:
-        # Organise data in a xy container
+        # Organize data in a xy container
         self.data = container
         self.adapt_label_on_operations = True
     
@@ -108,8 +111,8 @@ class XYFittingContainer:
         x_col_width = max(len(x_text) for x_text, _ in rows + [(x_label, '')])
         y_col_width = max(len(y_text) for _, y_text in rows + [('', y_label)])
 
-        x_has_error = any(not (np.isfinite(xv.s) or np.isnan(xv.s)) and xv.s != 0 for xv in x_uf)
-        y_has_error = any(not (np.isfinite(yv.s) or np.isnan(yv.s)) and yv.s != 0 for yv in y_uf)
+        x_has_error = self.data.has_x_errors
+        y_has_error = self.data.has_y_errors
 
         meta = [
             f"{self.__class__.__name__}:",
@@ -140,7 +143,7 @@ class XYFittingContainer:
         self.data.label = label
     
     @property
-    def axis_labels(self):
+    def axis_labels(self) -> tuple[str|None, str|None]:
         return self.data.axis_labels
 
     @property
@@ -211,38 +214,87 @@ class XYFittingContainer:
     def do_xy_fit(self, model: Callable[..., float],
                     constraints: list[tuple[str, int|float, int|float]] = [],
                     fixed_params: list[tuple[str, int|float]] = [],
-                    limited_params: list[tuple[str, dict[ParamaterLimitBoundary, int|float]]] = [],
+                    limited_params: list[tuple[str, dict[ParameterLimitBoundary, int|float]]] = [],
                     parameter_names: dict[str, str] = None,
                     model_label: str = None, model_name: str = None, model_expression: str = None,
                     show_result: bool = True, show_report: bool = False,
-                    plot_y_lims: tuple[float, float] = None,
+                    plot_y_lims: list[tuple[float, float]] = None,
                     do_log_x: bool = False,
                     **initial_values
                     ) -> dict:
         fit = self.get_fit(model, constraints, fixed_params, limited_params,
                            parameter_names, model_label, model_name, model_expression,
                            **initial_values)
-        # Perform fit
-        fit.do_fit()
-        # Plot fit results if desired
+        return self.perform_and_plot_fits([fit], show_result, show_report, plot_y_lims, do_log_x)[0]
+    
+    # todo: improve this as to enable setting stuff for each specific fit
+    def do_xy_fit_on_intervals(self, models: list[Callable[..., float]],
+                               bounds: list[tuple[float|None, float|None]],
+                               constraints: list[tuple[str, int|float, int|float]] = [],
+                               fixed_params: list[tuple[str, int|float]] = [],
+                               limited_params: list[tuple[str, dict[ParameterLimitBoundary, int|float]]] = [],
+                               parameter_names: dict[str, str] = None,
+                               model_label: str = None, model_name: str = None, model_expression: str = None,
+                               show_result: bool = True, show_report: bool = False,
+                               plot_y_lims: list[tuple[float, float]] = None,
+                               do_log_x: bool = False,
+                               **initial_values
+                               ) -> list[dict]:
+        fits = []
+        while len(models) < len(bounds):
+            models.append(models[0])
+        for bound, model in zip(bounds, models):
+            fit = self.slice_based_on_x(bound[0], bound[1])\
+                      .get_fit(model, constraints, fixed_params, limited_params,
+                               parameter_names, model_label, model_name, model_expression,
+                               **initial_values)
+            fit.data_container.label = f"data for fit on {bound}" # pyright: ignore[reportAttributeAccessIssue]
+            fits.append(fit)
+            
+        return self.perform_and_plot_fits(fits, show_result, show_report, plot_y_lims, do_log_x, True)
+    
+    def perform_and_plot_fits(self, fits: list[XYFit],
+                              show_result: bool = True,
+                              show_report: bool = False,
+                              plot_y_lims: list[tuple[float, float]] = None,
+                              do_log_x: bool = False,
+                              add_self: bool = False
+                              ) -> list[dict]:
+        # Perform fits
+        for fit in fits:
+            fit.do_fit()
+        # Plot fit results
         if show_result:
-            plot = Plot(fit)
+            if add_self:
+                plot = Plot([*fits, self.data])
+            else:
+                plot = Plot(fits)
+            dpcc = self.data_points_colorcyle
+            if dpcc and len(dpcc) >= len(fits) + add_self:
+                plot.customize('data', 'color', dpcc[:len(fits) + add_self])
+            mcc = self.model_colorcycle
+            if mcc and len(mcc) >= len(fits) + add_self:
+                plot.customize('model_line', 'color', mcc[:len(fits) + add_self])
+                plot.customize('model_error_band', 'color', mcc[:len(fits) + add_self])
             if plot_y_lims:
-                plot.y_range = [plot_y_lims]
+                plot.y_range = plot_y_lims
+            elif add_self:
+                plot.y_range = [(self.y.min() * 1.2, self.y.max() * 1.2)] * (len(fits) + 1)
             if do_log_x:
                 plot.x_scale = 'log'
             plot.plot()
             plot.show()
         # Report fit results if desired
         if show_report:
-            fit.report()
+            for fit in fits:
+                fit.report()
         # Return fit
-        return fit.get_result_dict()
+        return [fit.get_result_dict() for fit in fits]
 
     def get_fit(self, model: Callable[..., float],
                     constraints: list[tuple[str, int|float, int|float]] = [],
                     fixed_params: list[tuple[str, int|float]] = [],
-                    limited_params: list[tuple[str, dict[ParamaterLimitBoundary, int|float]]] = [],
+                    limited_params: list[tuple[str, dict[ParameterLimitBoundary, int|float]]] = [],
                     parameter_names: dict[str, str] = None,
                     model_label: str = None, model_name: str = None, model_expression: str = None,
                     **initial_values
@@ -277,8 +329,12 @@ class XYFittingContainer:
         return self
     
     def apply_to_axis(self, func: Callable, axis: Literal['x', 'y', 0, 1]) -> Self:
-        new_x = func(self.x_uf) if axis in ['x', 0] else self.x_uf
-        new_y = func(self.y_uf) if axis in ['y', 1] else self.y_uf
+        try:
+            new_x = func(self.x_uf) if axis in ['x', 0] else self.x_uf
+            new_y = func(self.y_uf) if axis in ['y', 1] else self.y_uf
+        except TypeError:
+            new_x = np.array([func(x) for x in self.x_uf]) if axis in ['x', 0] else self.x_uf
+            new_y = np.array([func(y) for y in self.y_uf]) if axis in ['y', 1] else self.y_uf
         
         container = XYContainer([x.n for x in new_x], [y.n for y in new_y])
         container.add_error(0, [x.s for x in new_x])
@@ -287,6 +343,26 @@ class XYFittingContainer:
         container.label = self.label
         
         return self.__class__(container)
+    
+    def set_axis_labels(self, x_label: str, y_label: str) -> Self:
+        self.data.axis_labels = (x_label, y_label)
+        return self
+    
+    def slice_based_on_x(self, min_val: float = None, max_val: float = None) -> Self:
+        mask = np.ones(self.x_uf.shape, dtype=bool)
+        
+        if min_val is not None:
+            mask &= self.x_uf >= min_val
+        if max_val is not None:
+            mask &= self.x_uf <= max_val
+
+        indices = np.flatnonzero(mask)
+        indices = indices[np.argsort(self.x_uf[indices])]
+        sliced_x_uf = self.x_uf[indices]
+        sliced_y_uf = self.y_uf[indices]
+        label = self.label if self.label else "MISSING LABEL"
+        
+        return self.__class__.from_arrays(label, sliced_x_uf, sliced_y_uf, axis_labels=self.axis_labels)
     
     def display(self) -> None:
         # todo: improve as that the text that is displayed is actually formatted for Markdown

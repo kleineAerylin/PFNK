@@ -5,7 +5,7 @@ from typing import Self, overload
 from numpy.typing import NDArray
 from kafe2 import HistContainer, HistFit, Plot
 
-from tools.fitting.kafe2_interaction_types import ParamaterLimitBoundary
+from fitting.kafe2_interaction_types import ParameterLimitBoundary
 
 Real = int|float
 
@@ -141,7 +141,7 @@ class HistFittingContainer:
     def do_hist_fit(self, model: Callable[..., float],
                     constraints: list[tuple[str, int|float, int|float]] = [],
                     fixed_params: list[tuple[str, int|float]] = [],
-                    limited_params: list[tuple[str, dict[ParamaterLimitBoundary, int|float]]] = [],
+                    limited_params: list[tuple[str, dict[ParameterLimitBoundary, int|float]]] = [],
                     parameter_names: dict[str, str] = None,
                     model_label: str = None, model_name: str = None, model_expression: str = None,
                     show_result: bool = True, show_report: bool = False,

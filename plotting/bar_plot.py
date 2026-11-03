@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from typing import Self
 from numpy.typing import NDArray
 
-from tools.fitting import HistFittingContainer
+from fitting import HistFittingContainer
 
 
 class BarPlot:

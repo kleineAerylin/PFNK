@@ -3,9 +3,9 @@ import matplotlib.pyplot as plt
 from collections.abc import Iterable
 from numpy import e, isclose
 
-from tools.plotting.plot_task import PlotTask
-from tools.plotting.axis_formatter import AxisFormatter
-from tools.plotting.formatters import LogFormatter
+from plotting.plot_task import PlotTask
+from plotting.axis_formatter import AxisFormatter
+from plotting.formatters import LogFormatter
 
 
 class PlotHelper:
@@ -26,6 +26,21 @@ class PlotHelper:
     color_rotation_1 = ["cornflowerblue", "lawngreen", "orangered", "darkorchid", "sandybrown", "palevioletred",
                         "xkcd:vermillion"]
     color_rotation_2 = ["darkgreen", "yellowgreen", "darkturquoise", "red"]
+    color_rotation_3 = ["xkcd:azure", "xkcd:pumpkin", "xkcd:kelly green", "xkcd:magenta", "xkcd:gold", "xkcd:cerulean",
+                        "xkcd:raspberry"]
+    color_rotation_4 = ["xkcd:denim blue", "xkcd:burnt orange", "xkcd:forest green", "xkcd:plum", "xkcd:mustard", "xkcd:teal",
+                        "xkcd:brick red"]
+    color_rotation_5 = ["#8DD3C7", "#FFFFB3", "#BEBADA", "#FB8072", "#80B1D3", "#FDB462", "#B3DE69", "#FCCDE5"]
+    kvv_color_rotation = ["#008e50", "#804387", "#bed730", "#009ee0", "#e17b7c", "#3d2d7c", "#fff90a",
+                          "#4d4f23", "#e9a085", "#00907a", "#760d37"]
+    kit_color_rotation = ["#00876C", "#fce500", "#A3107C", "#df9b1b", "#77A200", "#A7822E", "#a22223",
+                          "#079EDE", "#4664AA"]
+    okabe_ito_color_rotation = ["#0072B2", "#E69F00", "#009E73", "#CC79A7", "#D55E00", "#56B4E9",
+                                "#F0E442", "#000000"]
+    tableau_10_color_rotation = ["#4E79A7", "#F28E2B", "#59A14F", "#E15759", "#B07AA1", "#76B7B2",
+                                 "#EDC948", "#9C755F"]
+    tol_bright_color_rotation = ["#4477AA", "#EE6677", "#228833", "#CCBB44","#66CCEE","#AA3377",
+                                 "#BBBBBB"]
     
     
     def __init__(self, default_color: str = "xkcd:hot pink", sup_title_size: int = 24,
@@ -34,7 +49,7 @@ class PlotHelper:
         self.figure_counter: int = 0
         self.plot_queue: list[PlotTask] = []
         
-        self.extra_titel: str | None = None
+        self.extra_title: str | None = None
         self.xlabel: str = ""
         self.ylabel: str = ""
         
@@ -55,16 +70,16 @@ class PlotHelper:
         for plot in plots:
             self.plot_queue.append(plot)
     
-    def plot_queued(self, xlabel: str, ylabel: str, extra_titel: str = None) -> None:
-        self.xlabel = xlabel
-        self.ylabel = ylabel
-        self.extra_titel = extra_titel
+    def plot_queued(self, xlabel: str|None, ylabel: str|None, extra_title: str = None) -> None:
+        self.xlabel = xlabel if xlabel else ""
+        self.ylabel = ylabel if ylabel else ""
+        self.extra_title = extra_title
         self._plot()
     
-    def plot_plot_task(self, xlabel: str, ylabel: str, *plots: PlotTask,
-                       extra_titel: str = None) -> None:
+    def plot_plot_task(self, xlabel: str|None, ylabel: str|None, *plots: PlotTask,
+                       extra_title: str = None) -> None:
         self.enqueue_plot_task(*plots)
-        self.plot_queued(xlabel, ylabel, extra_titel)
+        self.plot_queued(xlabel, ylabel, extra_title)
     
     def set_color_rotation(self, color_rotation: Iterable[str]) -> None:
         self._color_rotation = color_rotation
@@ -142,8 +157,8 @@ class PlotHelper:
         # add the layout:
         plt.suptitle(self._get_figure_title(), color=self.default_color,
                      fontweight='bold', fontsize=self.sup_title_size, x=0.5)
-        if self.extra_titel:
-            plt.title(self.extra_titel, color=self.default_color, fontsize=self.title_size,
+        if self.extra_title:
+            plt.title(self.extra_title, color=self.default_color, fontsize=self.title_size,
                       x=0.5)
         plt.xlabel(self.xlabel)
         plt.ylabel(self.ylabel)

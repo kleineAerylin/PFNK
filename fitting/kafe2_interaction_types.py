@@ -1,4 +1,4 @@
 from typing import Literal
 
 
-ParamaterLimitBoundary = Literal['lower', 'upper']
+ParameterLimitBoundary = Literal['lower', 'upper']
