@@ -8,7 +8,7 @@ from numpy.typing import NDArray
 from uncertainties import UFloat, ufloat as uf
 from kafe2 import XYContainer
 
-from fitting import XYFittingContainer
+from src.fitting import XYFittingContainer
 
 
 class ErrorbarPlot:

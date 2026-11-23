@@ -3,9 +3,9 @@ import matplotlib.pyplot as plt
 from collections.abc import Iterable
 from numpy import e, isclose
 
-from plotting.plot_task import PlotTask
-from plotting.axis_formatter import AxisFormatter
-from plotting.formatters import LogFormatter
+from src.plotting.plot_task import PlotTask
+from src.plotting.axis_formatter import AxisFormatter
+from src.plotting.formatters import LogFormatter
 
 
 class PlotHelper:
