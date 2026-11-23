@@ -44,15 +44,18 @@ class BarPlot:
         self.width = width
         return self
     
-    def to_HistFittingContainer(self, axislabels: tuple[str|None, str|None] = (None, None)) -> HistFittingContainer:
+    def to_HistFittingContainer(self, axislabels: tuple[str|None, str|None] = (None, None), bin_edges: NDArray|None = None) -> HistFittingContainer:
         steps = np.diff(self.x_data)
-        if not np.allclose(steps, step := steps[0]):
-            raise ValueError("bin sizes aren't uniform. Cant predict bin edges")
-        bin_edges = np.arange(self.x_data[0]-0.5*step, self.x_data[-1]+step, step = step)
+        if bin_edges is None:
+            if not np.allclose(steps, step := steps[0]):
+                raise ValueError("bin sizes aren't uniform. Cant predict bin edges")
+            bin_edges = np.arange(self.x_data[0]-0.5*step, self.x_data[-1]+step, step = step)
+        if bin_edges is None:
+            raise ValueError("Guessing bin edges failed")
         return HistFittingContainer.from_arrays(bin_edges, self.height_data, self.label, axislabels)
 
 
     @classmethod
-    def from_HistFittingContainer(cls, container: HistFittingContainer) -> Self:
+    def from_HistFittingContainer(cls, container: HistFittingContainer, width: float = 1) -> Self:
         label = "histogramm data" if container.label == None else container.label
-        return cls(label, container.bin_mids, container.heights)
+        return cls(label, container.bin_mids, container.heights, width=width)

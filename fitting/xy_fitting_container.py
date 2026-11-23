@@ -8,6 +8,7 @@ from IPython.display import display, Markdown
 from uncertainties import UFloat, ufloat as uf
 from kafe2 import XYContainer, XYFit, Plot
 
+from fitting import counter
 from fitting.kafe2_interaction_types import ParameterLimitBoundary
 from plotting.plot_helper import PlotHelper
 
@@ -23,6 +24,7 @@ class XYFittingContainer:
     _uf = np.vectorize(lambda v, e: uf(v, e), otypes=[object])
     data_points_colorcyle: list[str] | None = PlotHelper.kit_color_rotation
     model_colorcycle: list[str] | None = PlotHelper.color_rotation_1
+    save_result: bool = False
     
     def __init__(self, container: XYContainer) -> None:
         # Organize data in a xy container
@@ -34,7 +36,7 @@ class XYFittingContainer:
     
     def __getitem__(self, key: slice) -> Self:
         if not isinstance(key, slice):
-            raise NotImplemented
+            return NotImplemented
         # compute integer indices selected by the slice
         indices = np.arange(self.data.size)[key]
 
@@ -283,6 +285,8 @@ class XYFittingContainer:
             if do_log_x:
                 plot.x_scale = 'log'
             plot.plot()
+            if self.save_result:
+                plot.save("fits/" + self.get_save_name(), dpi=300, bbox_inches='tight')
             plot.show()
         # Report fit results if desired
         if show_report:
@@ -439,3 +443,11 @@ class XYFittingContainer:
         container.label = label
         
         return cls(container)
+    
+    
+    def get_save_name(self) -> str:
+                if not self.label:
+                    return "None"
+                
+                counter.count += 1
+                return self.label.replace(' ', '_').replace('.', '_').replace('\\', '').replace('$', '') + str(counter.count)

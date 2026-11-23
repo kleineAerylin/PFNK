@@ -44,7 +44,7 @@ class PlotHelper:
     
     
     def __init__(self, default_color: str = "xkcd:hot pink", sup_title_size: int = 24,
-                 title_size: int = 20, plot_size: tuple[float, float] = (12, 8)) -> None:
+                 title_size: int = 20, plot_size: tuple[float, float] = (12, 8), save: bool = False) -> None:
         
         self.figure_counter: int = 0
         self.plot_queue: list[PlotTask] = []
@@ -62,6 +62,8 @@ class PlotHelper:
         self._color_rotation: Iterable[str] | None = self.color_rotation_1
         self.allow_plot_xy_lims = True
         self.is_log_with_base: tuple[float|None, float|None] = (None, None)
+        self.save = save
+        self.xlims: tuple[float, float] | None = None
         
         self._axis_formatters: list[AxisFormatter|None] = [None, None]
 
@@ -70,16 +72,17 @@ class PlotHelper:
         for plot in plots:
             self.plot_queue.append(plot)
     
-    def plot_queued(self, xlabel: str|None, ylabel: str|None, extra_title: str = None) -> None:
+    def plot_queued(self, xlabel: str|None, ylabel: str|None, extra_title: str = None, xlims: tuple[float, float] | None = None) -> None:
         self.xlabel = xlabel if xlabel else ""
         self.ylabel = ylabel if ylabel else ""
         self.extra_title = extra_title
+        self.xlims = xlims
         self._plot()
     
     def plot_plot_task(self, xlabel: str|None, ylabel: str|None, *plots: PlotTask,
-                       extra_title: str = None) -> None:
+                       extra_title: str = None, xlims: tuple[float, float] | None = None) -> None:
         self.enqueue_plot_task(*plots)
-        self.plot_queued(xlabel, ylabel, extra_title)
+        self.plot_queued(xlabel, ylabel, extra_title, xlims)
     
     def set_color_rotation(self, color_rotation: Iterable[str]) -> None:
         self._color_rotation = color_rotation
@@ -164,6 +167,8 @@ class PlotHelper:
         plt.ylabel(self.ylabel)
         plt.legend()
         plt.grid(self.do_grid)
+        if self.xlims:
+            plt.xlim(self.xlims)
         if self.is_log_with_base[0] != None:
             plt.xscale("log", base=(b:=self.is_log_with_base[0]))
         if self.is_log_with_base[1] != None:
@@ -171,4 +176,12 @@ class PlotHelper:
         for formatter in self._axis_formatters:
             if formatter:
                 formatter.format_axes()
+        if self.save:
+            plt.savefig("plots/" + self.get_save_name(), dpi=300, bbox_inches='tight')
         plt.show()
+
+    def get_save_name(self) -> str:
+        if not self.extra_title:
+            return "None"
+        
+        return self.extra_title.replace(' ', '_').replace('.', '_').replace('\\', '').replace('$', '')

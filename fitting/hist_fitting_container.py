@@ -5,6 +5,7 @@ from typing import Self, overload
 from numpy.typing import NDArray
 from kafe2 import HistContainer, HistFit, Plot
 
+from fitting import counter
 from fitting.kafe2_interaction_types import ParameterLimitBoundary
 
 Real = int|float
@@ -15,6 +16,8 @@ class HistFittingContainer:
     Conatiner for Histogram Data that allows to comfortably
     perform kafe2 HistFits
     """
+    
+    save_result_override: bool = False
     
     def __init__(self, container: HistContainer) -> None:
         # Organise data in a histogram container
@@ -39,58 +42,77 @@ class HistFittingContainer:
         container.axis_labels = self.axis_labels
         return self.__class__(container)
     
-    def __sub__(self, other: 'HistFittingContainer') -> Self:
-        if not isinstance(other, HistFittingContainer):
-            raise NotImplemented
-        if not len(self) == len(other):
-            raise ValueError("Can't subtract HistFittingContainers of diffrent sizes")
+    def __sub__(self, other: 'HistFittingContainer|Callable[[float], float]') -> Self:
+        if isinstance(other, HistFittingContainer):
+            if not len(self) == len(other):
+                raise ValueError("Can't subtract HistFittingContainers of diffrent sizes")
+            
+            new_height_data = self.heights - other.heights
+            container = self.from_container_and_heights(self, new_height_data, self.axis_labels == other.axis_labels)
+
+            if self.adapt_label_on_operations:
+                container.label = str(self.data.label) + " without " + str(other.label)
+            
+            return container
         
-        new_height_data = self.heights - other.heights
-        container = HistContainer(bin_edges=self.data.bin_edges)
-        container.set_bins(new_height_data)
+        if isinstance(other, Callable):
+            vec_other = np.vectorize(other)
+            subtraction_heights = np.round(vec_other(self.bin_mids)).astype(int)
+            
+            new_height_data = self.heights - subtraction_heights
+            new_height_data = np.maximum(0, new_height_data)
+            container = self.from_container_and_heights(self, new_height_data)
+            
+            if self.adapt_label_on_operations:
+                container.label = str(self.data.label) + " with removed feature"
+            
+            return container
         
-        if self.adapt_label_on_operations:
-            container.label = str(self.data.label) + " without " + str(other.label)
-        else:
-            container.label = str(self.data.label)
-        if self.axis_labels == other.axis_labels:
-            container.axis_labels = self.axis_labels
-        
-        return self.__class__(container)
+        return NotImplemented
     
-    def __isub__(self, other: 'HistFittingContainer') -> Self:
-        if not isinstance(other, HistFittingContainer):
-            raise NotImplemented
-        if not len(self) == len(other):
-            raise ValueError("Can't subtract HistFittingContainers of diffrent sizes")
+    def __isub__(self, other: 'HistFittingContainer|Callable[[float], float]') -> Self:
+        if isinstance(other, HistFittingContainer):
+            if not len(self) == len(other):
+                raise ValueError("Can't subtract HistFittingContainers of diffrent sizes")
+            
+            new_height_data = self.heights - other.heights
+            self.data.set_bins(new_height_data)
+            
+            if self.adapt_label_on_operations:
+                self.label = str(self.data.label) + " without " + str(other.label)
+            
+            return self
         
-        new_height_data = self.heights - other.heights
-        self.data.set_bins(new_height_data)
+        if isinstance(other, Callable):
+            vec_other = np.vectorize(other)
+            subtraction_heights = np.round(vec_other(self.bin_mids)).astype(int)
+            
+            new_height_data = self.heights - subtraction_heights
+            new_height_data = np.maximum(0, new_height_data)
+            self.data.set_bins(new_height_data)
+                        
+            if self.adapt_label_on_operations:
+                self.label = str(self.data.label) + " with removed feature"
+            
+            return self
         
-        if self.adapt_label_on_operations:
-            self.label = str(self.data.label) + " without " + str(other.label)
-        
-        return self
+        return NotImplemented
     
     def __truediv__(self, other: Real) -> Self:
         if not isinstance(other, Real):
-            raise NotImplemented
+            return NotImplemented
 
         new_height_data = np.clip(np.round(self.heights / other), 0, None)
-        container = HistContainer(bin_edges=self.data.bin_edges)
-        container.set_bins(new_height_data)
-        container.axis_labels = self.axis_labels
+        container = self.__class__.from_container_and_heights(self, new_height_data)
         
         if self.adapt_label_on_operations:
             container.label = str(self.data.label) + " divided by " + str(other)
-        else:
-            container.label = str(self.data.label)
         
-        return self.__class__(container)
+        return container
     
     def __itruediv__(self, other: Real) -> Self:
         if not isinstance(other, Real):
-            raise NotImplemented
+            return NotImplemented
         
         new_height_data = np.clip(np.round(self.heights / other), 0, None)
         self.data.set_bins(new_height_data)
@@ -145,9 +167,14 @@ class HistFittingContainer:
                     parameter_names: dict[str, str] = None,
                     model_label: str = None, model_name: str = None, model_expression: str = None,
                     show_result: bool = True, show_report: bool = False,
+                    save_result: bool = False,
+                    density = True,
                     **initial_values
                     ) -> dict:
-        fit = HistFit(self.data, model, density=True)
+        
+        save_result = save_result or self.save_result_override
+        
+        fit = HistFit(self.data, model, density=density)
         
         # Assign parameter constraints and set as initial values
         for constraint in constraints:
@@ -174,10 +201,14 @@ class HistFittingContainer:
         # Perform fit
         fit.do_fit()  
         # Plot fit results if desired
-        if show_result:
+        
+        if save_result or show_result:
             plot = Plot(fit)
             plot.plot()
-            plot.show()
+            if save_result:
+                plot.save("fits/" + self.get_save_name(), dpi=300, bbox_inches='tight')
+            if show_result:
+                plot.show()
         # Report fit results if desired
         if show_report:
             fit.report()
@@ -187,6 +218,9 @@ class HistFittingContainer:
     def rename(self, label: str) -> Self:
         self.label = label
         return self
+    
+    def fix(self) -> Self:
+        return self.from_container_and_heights(self, np.maximum(self.heights, 0))
 
 
     @classmethod
@@ -197,3 +231,21 @@ class HistFittingContainer:
         container.label = label
         container.axis_labels = axislabels
         return cls(container)
+    
+    @classmethod
+    def from_container_and_heights(cls, old_container: Self, new_height_data: NDArray, keep_axis_labels: bool = True) -> Self:
+        container = HistContainer(bin_edges=old_container.data.bin_edges)
+        container.set_bins(new_height_data)
+        if keep_axis_labels:
+            container.axis_labels = old_container.axis_labels
+        container.label = str(old_container.data.label)
+        
+        return cls(container)
+    
+    
+    def get_save_name(self) -> str:
+            if not self.label:
+                return "None"
+            
+            counter.count += 1
+            return self.label.replace(' ', '_').replace('.', '_').replace('\\', '').replace('$', '') + str(counter.count)
