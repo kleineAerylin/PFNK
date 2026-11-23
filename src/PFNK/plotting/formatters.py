@@ -3,7 +3,7 @@ import numpy as np
 from typing import Literal
 from matplotlib.ticker import FuncFormatter, LogLocator
 
-from src.plotting.axis_formatter import AxisFormatter
+from .axis_formatter import AxisFormatter
 
 
 axies_selector = Literal["", "x", "y"]

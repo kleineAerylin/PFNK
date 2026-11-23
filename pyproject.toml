@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "PFNK"
+version = "0.1.0"
+description = "A plotting and fitting helper for P1-P4"
+requires-python = ">=3.12"
+
+dependencies = [
+    "numpy",
+    "kafe2",
+    "matplotlib"
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["PFNK*"]

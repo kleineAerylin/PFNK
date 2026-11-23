@@ -5,8 +5,8 @@ from typing import Self, overload
 from numpy.typing import NDArray
 from kafe2 import HistContainer, HistFit, Plot
 
-from src.fitting import counter
-from src.fitting.kafe2_interaction_types import ParameterLimitBoundary
+from . import counter
+from .kafe2_interaction_types import ParameterLimitBoundary
 
 Real = int|float
 

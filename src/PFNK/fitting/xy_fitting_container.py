@@ -8,9 +8,9 @@ from IPython.display import display, Markdown
 from uncertainties import UFloat, ufloat as uf
 from kafe2 import XYContainer, XYFit, Plot
 
-from src.fitting import counter
-from src.fitting.kafe2_interaction_types import ParameterLimitBoundary
-from src.plotting.plot_helper import PlotHelper
+from . import counter
+from .kafe2_interaction_types import ParameterLimitBoundary
+from ..plotting.plot_helper import PlotHelper
 
 Real = int|float
 
